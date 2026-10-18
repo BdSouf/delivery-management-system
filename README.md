@@ -2,9 +2,9 @@
 
 Monorepo d’une application de gestion de livraison : **8 microservices Spring Boot** + **frontend Next.js**.
 
-Ce dépôt est déjà sur GitHub. Parcours DevOps : **E0–E5 terminés** (Docker + CI).
+Ce dépôt est déjà sur GitHub. Parcours DevOps : **E0–E6** (CI + CD images GHCR).
 
-**Guide pratique (E0→E5) :** [docs/GUIDE_DEVOPS_E0_E4.md](docs/GUIDE_DEVOPS_E0_E4.md)  
+**Guide pratique (E0→E6) :** [docs/GUIDE_DEVOPS_E0_E4.md](docs/GUIDE_DEVOPS_E0_E4.md)  
 **Journal de session :** [docs/DEVOPS_JOURNEY.md](docs/DEVOPS_JOURNEY.md)
 
 ## Prérequis
@@ -182,8 +182,9 @@ Pilote E3 (3 services) : `docker compose -f docker-compose.pilot.yml up -d` — 
 | E2 | Config / secrets en variables d’environnement |
 | E3 | Docker pilote (MySQL + Eureka + auth) — **fait** |
 | E4 | Docker Compose stack complète — **fait** |
-| E5 | GitHub Actions CI — **fait** (`.github/workflows/ci.yml`) |
-| **E6** | Images GHCR (CD léger) |
+| E5 | GitHub Actions CI — **fait** |
+| E6 | CD images GHCR — **fait** (`.github/workflows/cd-images.yml` — à pousser) |
+| **E7** | Kubernetes / Minikube |
 | E7–E8 | Minikube puis monitoring |
 | E9–E10 | AWS puis Terraform (facultatif) |
 

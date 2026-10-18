@@ -1,0 +1,127 @@
+# E6 — CD léger : build & push images vers GHCR (après CI verte)
+name: CD Images
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: cd-images-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  # GHCR exige souvent le owner en minuscules
+  IMAGE_OWNER: ${{ github.repository_owner }}
+
+jobs:
+  backend-images:
+    name: Image — ${{ matrix.service }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # config-server hors scope runtime (pas de Dockerfile E4)
+        service:
+          - discovery-server
+          - auth-service
+          - user-service
+          - client-service
+          - courier-service
+          - package-service
+          - api-gateway
+    steps:
+      - name: Checkout commit that passed CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: backend/${{ matrix.service }}/${{ matrix.service }}/pom.xml
+
+      - name: Set lowercase image name
+        id: meta
+        run: |
+          OWNER=$(echo "${{ env.IMAGE_OWNER }}" | tr '[:upper:]' '[:lower:]')
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          echo "owner=${OWNER}" >> "$GITHUB_OUTPUT"
+          echo "image=${{ env.REGISTRY }}/${OWNER}/delivery-${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+          echo "tag_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build JAR
+        working-directory: backend/${{ matrix.service }}/${{ matrix.service }}
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -DskipTests package
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend/${{ matrix.service }}/${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag_sha }}
+            ${{ steps.meta.outputs.image }}:latest
+
+  frontend-image:
+    name: Image — frontend
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout commit that passed CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set lowercase image name
+        id: meta
+        run: |
+          OWNER=$(echo "${{ env.IMAGE_OWNER }}" | tr '[:upper:]' '[:lower:]')
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          echo "image=${{ env.REGISTRY }}/${OWNER}/delivery-frontend" >> "$GITHUB_OUTPUT"
+          echo "tag_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend/delivery-app-frontend
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:8080
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag_sha }}
+            ${{ steps.meta.outputs.image }}:latest

@@ -1,8 +1,8 @@
-# Guide pratique DevOps — Étapes terminées (E0 → E5)
+# Guide pratique DevOps — Étapes terminées (E0 → E6)
 
 Ce guide te permet de **refaire toi-même** tout ce qui a déjà été réalisé sur le monorepo *Delivery Management System*.
 
-**Uniquement les étapes terminées.** Pas de CD images, Kubernetes, AWS, etc.
+**Uniquement les étapes terminées.** Pas de Kubernetes / AWS encore.
 
 | Étape | Titre | Statut |
 |-------|--------|--------|
@@ -12,6 +12,7 @@ Ce guide te permet de **refaire toi-même** tout ce qui a déjà été réalisé
 | E3 | Docker pilote (MySQL + Eureka + auth) | Terminée |
 | E4 | Docker Compose stack complète | Terminée |
 | E5 | GitHub Actions CI | Terminée |
+| E6 | CD images → GHCR | Terminée (workflow créé — à pousser manuellement) |
 
 ---
 
@@ -728,15 +729,121 @@ Sur GitHub : **Settings → Branches → Add rule** pour `main` :
 
 ---
 
+# E6 — CD léger : images Docker sur GHCR
+
+## Objectif
+
+Après une **CI verte**, GitHub Actions construit les images Docker et les pousse sur **GHCR** (`ghcr.io`).
+
+```
+Push → CI (E5) Success → CD Images (E6) → packages visibles sur GitHub
+```
+
+Images produites (exemples) :
+- `ghcr.io/bdsouf/delivery-auth-service:xxxxxx`
+- `ghcr.io/bdsouf/delivery-api-gateway:xxxxxx`
+- `ghcr.io/bdsouf/delivery-frontend:xxxxxx`
+- … (+ discovery, user, client, courier, package)
+
+`config-server` n’a pas d’image (hors scope runtime).
+
+## Fichier
+
+| Fichier | Rôle |
+|---------|------|
+| `.github/workflows/cd-images.yml` | Build JAR → `docker build` → `docker push` GHCR |
+
+## À faire MANUELLEMENT (Git)
+
+Le workflow est dans ton projet local. **Toi** tu dois :
+
+```powershell
+cd C:\Users\DELL\Desktop\devoops\gestion_Liv_colis_production\delivery-management-system
+
+git status
+git add .github/workflows/cd-images.yml
+git add docs/ README.md
+git status
+git commit -m "ci: add CD workflow to build and push images to GHCR"
+git push origin main
+```
+
+| Commande | Explication | Rôle |
+|----------|-------------|------|
+| `git add .github/workflows/cd-images.yml` | Stage le workflow CD | Préparer le commit |
+| `git push origin main` | Envoie sur GitHub | Déclenche **CI**, puis si CI OK → **CD Images** |
+
+## Ce qui se passe sur GitHub (automatique)
+
+1. Workflow **CI** tourne (comme E5)
+2. S’il est **Success**, workflow **CD Images** démarre
+3. Pour chaque service : Maven package → Docker build → push `ghcr.io/...`
+4. Tags : `:latest` et `:<7 premiers caractères du commit>`
+
+## Vérifier sur GitHub (manuel)
+
+1. Onglet **Actions** → runs **CI** puis **CD Images**
+2. Onglet du profil/repo → **Packages** (ou `https://github.com/BdSouf?tab=packages`)
+3. Ouvre un package (ex. `delivery-auth-service`)
+
+## Pull d’une image en local (manuel — Docker)
+
+Par défaut les packages GHCR peuvent être **privés**. Deux options :
+
+### Option A — Rendre le package public (simple pour apprendre)
+
+Sur la page du package GitHub → **Package settings** → Change visibility → **Public**.
+
+Puis :
+
+```powershell
+docker pull ghcr.io/bdsouf/delivery-auth-service:latest
+docker images | Select-String "delivery-auth"
+```
+
+### Option B — Login avec un token (si package privé)
+
+1. GitHub → Settings → Developer settings → Personal access tokens  
+2. Créer un token avec au moins `read:packages`  
+3. Puis :
+
+```powershell
+echo TON_TOKEN | docker login ghcr.io -u BdSouf --password-stdin
+docker pull ghcr.io/bdsouf/delivery-auth-service:latest
+```
+
+| Commande | Explication | Rôle |
+|----------|-------------|------|
+| `docker login ghcr.io ...` | Authentifie Docker auprès de GHCR | Autorise le pull privé |
+| `docker pull ghcr.io/...` | Télécharge l’image | Preuve que le CD a publié l’artefact |
+
+## Validation E6
+
+- [ ] Workflow `cd-images.yml` poussé sur `main`
+- [ ] Après CI verte, run **CD Images** vert
+- [ ] Packages visibles sur GitHub
+- [ ] `docker pull` d’au moins une image OK
+
+## Ne pas confondre
+
+| E6 fait | E6 ne fait pas |
+|---------|----------------|
+| Publier des images | Déployer sur Minikube (E7) |
+| Lier CI → CD | Mettre les secrets dans l’image |
+
+Les secrets (`JWT_SECRET`, etc.) restent au **runtime** (Compose / K8s), pas dans l’image.
+
+---
+
 # Fichiers de référence
 
 | Document | Contenu |
 |----------|---------|
-| **Ce guide** `docs/GUIDE_DEVOPS_E0_E4.md` | Manipulations terminées E0–E5 |
+| **Ce guide** `docs/GUIDE_DEVOPS_E0_E4.md` | Manipulations terminées E0–E6 |
 | `docs/DEVOPS_JOURNEY.md` | Journal + notes de session |
 | `docs/SECRETS_INVENTORY.md` | Secrets / risques |
 | `README.md` | Vue rapide du projet |
 
 ---
 
-*Dernière mise à jour : après ajout E5 (GitHub Actions CI).*
+*Dernière mise à jour : après ajout E6 (CD Images GHCR).*

@@ -5,7 +5,7 @@ Fichier **journal** du parcours DevOps (notes de session, historique).
 **Pour refaire les manipulations terminées (E0→E4) avec commandes + explications :**  
 voir **[GUIDE_DEVOPS_E0_E4.md](GUIDE_DEVOPS_E0_E4.md)** (guide pratique dédié).
 
-**État actuel :** E0–E5 terminés (Docker + CI GitHub Actions)
+**État actuel :** E0–E6 prêts (CD Images workflow créé — push manuel requis)
 
 ---
 
@@ -383,14 +383,21 @@ Guide détaillé : [GUIDE_DEVOPS_E0_E4.md](GUIDE_DEVOPS_E0_E4.md) section E5.
 
 ---
 
-## E6 — Images GHCR (à venir)
+## E6 — Images GHCR — FAIT (à pousser manuellement)
+
+- [x] `.github/workflows/cd-images.yml` (après CI Success → build/push)
+- [x] 7 services backend + frontend → `ghcr.io/<owner>/delivery-<name>`
+- [ ] Push Git manuel + vérifier Packages + `docker pull`
 
 ```powershell
-# Login registry GitHub (exemple)
-echo YOUR_GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
-docker tag delivery/discovery-server:pilot ghcr.io/OWNER/discovery-server:sha
-docker push ghcr.io/OWNER/discovery-server:sha
+git add .github/workflows/cd-images.yml docs/ README.md
+git commit -m "ci: add CD workflow to build and push images to GHCR"
+git push origin main
+# Actions: CI puis CD Images
+# docker pull ghcr.io/bdsouf/delivery-auth-service:latest
 ```
+
+Guide : [GUIDE_DEVOPS_E0_E4.md](GUIDE_DEVOPS_E0_E4.md) section E6.
 
 ---
 
@@ -462,4 +469,5 @@ Types de commit suggérés : `docs`, `build`, `ci`, `chore`, `fix`, `feat`.
 | 2026-10-17 | E3.5 docker-compose.pilot.yml | OK — 3 services via Compose |
 | 2026-10-17 | E4 docker-compose.yml full stack | OK — 9 containers, Eureka UP, FE :3010 |
 | 2026-10-18 | E5 GitHub Actions ci.yml | Fichier créé — vert après push |
+| 2026-10-18 | E6 cd-images.yml GHCR | Workflow créé — en attente push manuel |
 | | | |
