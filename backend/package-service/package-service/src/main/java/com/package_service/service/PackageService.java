@@ -32,6 +32,9 @@ public class PackageService {
     @Value("${courier.service.url}")
     private String courierServiceUrl;
 
+    @Value("${internal.api.key}")
+    private String internalApiKey;
+
     private final PackageRepository repository;
 
     public PackageService(PackageRepository repository) {
@@ -154,7 +157,7 @@ public class PackageService {
             // D'abord, on récupère la charge actuelle du livreur
             String getCourierUrl = courierServiceUrl + "/api/couriers/" + courierId;
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-INTERNAL-KEY", "SECRET123456");
+            headers.set("X-INTERNAL-KEY", internalApiKey);
             HttpEntity<String> getEntity = new HttpEntity<>(headers);
 
             // On suppose que le courier-service a un endpoint GET /api/couriers/{id}
@@ -192,7 +195,7 @@ public class PackageService {
     public Long getClientIdFromEmail(String email) {
         // ... (votre code existant)
         HttpHeaders headers = new HttpHeaders();
-        headers.add("X-INTERNAL-KEY", "SECRET123456");
+        headers.add("X-INTERNAL-KEY", internalApiKey);
         HttpEntity<String> entity = new HttpEntity<>(headers);
         String url = userServiceUrl + "/internal/users/id-by-email/" + email;
 
@@ -212,7 +215,7 @@ public class PackageService {
         try {
             String url = courierServiceUrl + "/internal/couriers/id-by-email/" + email;
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-INTERNAL-KEY", "SECRET123456");
+            headers.set("X-INTERNAL-KEY", internalApiKey);
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
@@ -305,7 +308,7 @@ public class PackageService {
         try {
             String url = courierServiceUrl + "/api/couriers/all";
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-INTERNAL-KEY", "SECRET123456");
+            headers.set("X-INTERNAL-KEY", internalApiKey);
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
             ResponseEntity<List<Courier>> response = restTemplate.exchange(
@@ -326,7 +329,7 @@ public class PackageService {
         try {
             String url = courierServiceUrl + "/api/couriers/" + courierId + "/load";
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-INTERNAL-KEY", "SECRET123456");
+            headers.set("X-INTERNAL-KEY", internalApiKey);
             headers.set("Content-Type", "application/json");
 
             HttpEntity<Map<String, Integer>> requestEntity = new HttpEntity<>(Map.of("load", newLoad), headers);

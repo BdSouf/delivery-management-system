@@ -15,15 +15,11 @@ public class SecurityConfig {
 
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
-
                 .authorizeExchange(auth -> auth
-                        // ✅ On laisse tout passer, aucun contrôle au niveau du Gateway
-                        .pathMatchers("/internal/**").permitAll()
+                        // Inter-service APIs must not be reachable via the public gateway
+                        .pathMatchers("/internal/**").denyAll()
                         .anyExchange().permitAll()
-
-
                 )
-
                 .build();
     }
 }

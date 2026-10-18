@@ -1,0 +1,203 @@
+# E4 — stack complète (sans config-server)
+#
+# 1) Build JAR locaux:
+#    .\scripts\build-all.ps1 -SkipFrontend
+# 2) Lancer:
+#    docker compose up --build -d
+#
+# UI:     http://localhost:3010  (3000/3001 often busy on Windows)
+# Gateway:http://localhost:8080
+# Eureka: http://localhost:8761
+# MySQL:  localhost:3307 (root/root)
+
+name: delivery-full
+
+x-common-env: &common-env
+  EUREKA_URL: http://discovery-server:8761/eureka/
+  MYSQL_USER: root
+  MYSQL_PASSWORD: root
+  JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-before-docker}
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key}
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: delivery-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - delivery_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - delivery-net
+
+  discovery-server:
+    build:
+      context: ./backend/discovery-server/discovery-server
+    image: delivery/discovery-server:e4
+    container_name: delivery-discovery
+    ports:
+      - "8761:8761"
+    environment:
+      SERVER_PORT: "8761"
+    depends_on:
+      mysql:
+        condition: service_started
+    networks:
+      - delivery-net
+
+  auth-service:
+    build:
+      context: ./backend/auth-service/auth-service
+    image: delivery/auth-service:e4
+    container_name: delivery-auth
+    ports:
+      - "8090:8090"
+    environment:
+      <<: *common-env
+      SERVER_PORT: "8090"
+      MYSQL_URL: jdbc:mysql://mysql:3306/authdb
+      USER_SERVICE_URL: http://user-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+    networks:
+      - delivery-net
+
+  user-service:
+    build:
+      context: ./backend/user-service/user-service
+    image: delivery/user-service:e4
+    container_name: delivery-user
+    ports:
+      - "8091:8091"
+    environment:
+      <<: *common-env
+      SERVER_PORT: "8091"
+      MYSQL_URL: jdbc:mysql://mysql:3306/userdb
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+    networks:
+      - delivery-net
+
+  client-service:
+    build:
+      context: ./backend/client-service/client-service
+    image: delivery/client-service:e4
+    container_name: delivery-client
+    ports:
+      - "8092:8092"
+    environment:
+      <<: *common-env
+      SERVER_PORT: "8092"
+      MYSQL_URL: jdbc:mysql://mysql:3306/clientdb
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+    networks:
+      - delivery-net
+
+  courier-service:
+    build:
+      context: ./backend/courier-service/courier-service
+    image: delivery/courier-service:e4
+    container_name: delivery-courier
+    ports:
+      - "8093:8093"
+    environment:
+      <<: *common-env
+      SERVER_PORT: "8093"
+      MYSQL_URL: jdbc:mysql://mysql:3306/courierdb
+      AUTH_SERVICE_URL: http://auth-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    networks:
+      - delivery-net
+
+  package-service:
+    build:
+      context: ./backend/package-service/package-service
+    image: delivery/package-service:e4
+    container_name: delivery-package
+    ports:
+      - "8094:8094"
+    environment:
+      <<: *common-env
+      SERVER_PORT: "8094"
+      MYSQL_URL: jdbc:mysql://mysql:3306/package_db?createDatabaseIfNotExist=true
+      USER_SERVICE_URL: http://user-service
+      COURIER_SERVICE_URL: http://courier-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+      user-service:
+        condition: service_started
+      courier-service:
+        condition: service_started
+    networks:
+      - delivery-net
+
+  api-gateway:
+    build:
+      context: ./backend/api-gateway/api-gateway
+    image: delivery/api-gateway:e4
+    container_name: delivery-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *common-env
+      SERVER_PORT: "8080"
+      CORS_ALLOWED_ORIGINS: "*"
+    depends_on:
+      - discovery-server
+      - auth-service
+      - user-service
+      - client-service
+      - courier-service
+      - package-service
+    networks:
+      - delivery-net
+
+  frontend:
+    build:
+      context: ./frontend/delivery-app-frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080
+    image: delivery/frontend:e4
+    container_name: delivery-frontend
+    ports:
+      # Host 3010 avoids conflict when local apps already use 3000/3001
+      - "3010:3000"
+    depends_on:
+      - api-gateway
+    networks:
+      - delivery-net
+
+networks:
+  delivery-net:
+    driver: bridge
+
+volumes:
+  delivery_mysql_data:

@@ -1,0 +1,29 @@
+# E3 sous-etape 2 — MySQL seul
+# Usage:
+#   docker compose -f docker-compose.mysql.yml up -d
+# Stop:
+#   docker compose -f docker-compose.mysql.yml down
+
+name: delivery-mysql-only
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: delivery-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      # 3307 on host = avoid clash with XAMPP on 3306
+      - "3307:3306"
+    volumes:
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - delivery_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  delivery_mysql_data:

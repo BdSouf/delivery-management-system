@@ -1,0 +1,78 @@
+# E3.5 — stack pilote: MySQL + Eureka + auth-service
+#
+# Avant le premier build, compiler les JAR:
+#   cd backend\discovery-server\discovery-server ; .\mvnw.cmd -DskipTests package
+#   cd backend\auth-service\auth-service       ; .\mvnw.cmd -DskipTests package
+#
+# Lancer:
+#   docker compose -f docker-compose.pilot.yml up --build -d
+# Stop:
+#   docker compose -f docker-compose.pilot.yml down
+
+name: delivery-pilot
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: delivery-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - delivery_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - delivery-net
+
+  discovery-server:
+    build:
+      context: ./backend/discovery-server/discovery-server
+    image: delivery/discovery-server:pilot
+    container_name: delivery-discovery
+    ports:
+      - "8761:8761"
+    environment:
+      SERVER_PORT: "8761"
+    depends_on:
+      mysql:
+        condition: service_started
+    networks:
+      - delivery-net
+
+  auth-service:
+    build:
+      context: ./backend/auth-service/auth-service
+    image: delivery/auth-service:pilot
+    container_name: delivery-auth
+    ports:
+      - "8090:8090"
+    environment:
+      SERVER_PORT: "8090"
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      MYSQL_URL: jdbc:mysql://mysql:3306/authdb
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-before-docker}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key}
+      USER_SERVICE_URL: http://user-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+    networks:
+      - delivery-net
+
+networks:
+  delivery-net:
+    driver: bridge
+
+volumes:
+  delivery_mysql_data:

@@ -32,6 +32,9 @@ public class AuthService {
     @Value("${user.service.url}")
     private String userServiceUrl;
 
+    @Value("${internal.api.key}")
+    private String internalApiKey;
+
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -80,7 +83,7 @@ public class AuthService {
 
             // On prépare les en-têtes avec la clé secrète pour l'authentification interne
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-INTERNAL-KEY", "SECRET123456");
+            headers.set("X-INTERNAL-KEY", internalApiKey);
 
             // On crée l'entité de la requête (corps + en-têtes)
             HttpEntity<UserProfileCreationRequest> requestEntity = new HttpEntity<>(profileRequest, headers);

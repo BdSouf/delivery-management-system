@@ -21,5 +21,11 @@ logs
 target/
 *.class
 
-# Env files
+# Env files (garder .env.example versionnable à E2)
 .env
+.env.local
+.env.*.local
+
+# Lockfiles non retenus (npm uniquement pour le frontend)
+**/pnpm-lock.yaml
+**/yarn.lock

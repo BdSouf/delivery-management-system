@@ -26,6 +26,9 @@ public class CourierRequestService {
     @Value("${auth.service.url}")
     private String authServiceUrl;
 
+    @Value("${internal.api.key}")
+    private String internalApiKey;
+
     public CourierRequestService(CourierRequestRepository repository) {
         this.repository = repository;
     }
@@ -57,7 +60,7 @@ public class CourierRequestService {
 
 
         HttpHeaders headers = new HttpHeaders();
-        headers.add("X-INTERNAL-KEY", "SECRET123456");
+        headers.add("X-INTERNAL-KEY", internalApiKey);
 
         HttpEntity<UpdateRoleRequest> entity = new HttpEntity<>(req, headers);
 
